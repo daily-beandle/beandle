@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Poople 💩 – daily word ladder</title>
+<style>
+  :root{
+    --bg:#faf7f2; --fg:#2b2118; --muted:#8a7d70; --tile:#ffffff; --border:#e2d9cc;
+    --accent:#7b4a2a; --changed:#c98a52; --good:#4f9a5f; --bad:#d04b3b;
+    --key:#e9e1d4; --keyfg:#2b2118; --overlay:rgba(0,0,0,.5);
+  }
+  [data-theme="dark"]{
+    --bg:#17130f; --fg:#f3ece3; --muted:#9c8f82; --tile:#241e18; --border:#3a3128;
+    --accent:#d49a64; --changed:#a8693a; --good:#4f9a5f; --bad:#e06a5a;
+    --key:#3a3128; --keyfg:#f3ece3; --overlay:rgba(0,0,0,.65);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    background:var(--bg); color:var(--fg);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    display:flex; justify-content:center;
+  }
+  #app{width:100%; max-width:480px; height:100dvh; display:flex; flex-direction:column; padding:0 12px 10px}
+  header{display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--border)}
+  h1{font-size:1.4rem; margin:0; line-height:1.1}
+  h1 small{display:block; font-size:.72rem; font-weight:500; color:var(--muted); margin-top:2px}
+  .icons{display:flex; gap:6px}
+  .icon{background:none; border:1px solid var(--border); color:var(--fg); border-radius:8px; width:38px; height:38px; font-size:1.05rem; cursor:pointer}
+  #board{flex:1; overflow-y:auto; padding:12px 0; display:flex; flex-direction:column; align-items:center; gap:6px}
+  .caption{font-size:.7rem; letter-spacing:.12em; color:var(--muted); margin-top:2px}
+  .row{display:flex; gap:6px}
+  .tile{
+    width:54px; height:54px; border:2px solid var(--border); background:var(--tile);
+    border-radius:8px; display:flex; align-items:center; justify-content:center;
+    font-size:1.7rem; font-weight:800;
+  }
+  .tile.changed{background:var(--changed); border-color:var(--changed); color:#fff}
+  .row.start .tile{background:var(--border)}
+  .row.input .tile{border-color:var(--muted)}
+  .row.input .tile.filled{border-color:var(--fg)}
+  .row.win .tile{background:var(--good); border-color:var(--good); color:#fff}
+  #goal{display:flex; flex-direction:column; align-items:center; gap:4px; padding:8px 0; border-top:1px solid var(--border)}
+  #goal .tile{width:40px; height:40px; font-size:1.2rem; border-style:dashed; border-color:var(--accent); color:var(--accent)}
+  #goalInfo{display:flex; gap:10px; align-items:center; font-size:.8rem; color:var(--muted)}
+  #msg{height:22px; text-align:center; font-weight:600; font-size:.9rem; color:var(--bad); opacity:0; transition:opacity .15s}
+  #msg.show{opacity:1}
+  #actions{display:flex; gap:8px; justify-content:center; margin:4px 0 8px}
+  .btn{background:var(--key); color:var(--keyfg); border:0; border-radius:8px; padding:9px 16px; font-weight:700; cursor:pointer; font-size:.9rem}
+  .btn.primary{background:var(--accent); color:#fff}
+  .btn:disabled{opacity:.4; cursor:default}
+  #kb{display:flex; flex-direction:column; gap:6px}
+  .krow{display:flex; gap:5px; justify-content:center}
+  .key{flex:1; max-width:44px; height:48px; border:0; border-radius:6px; background:var(--key); color:var(--keyfg); font-weight:700; font-size:1rem; cursor:pointer; padding:0}
+  .key.wide{flex:1.6; max-width:70px; font-size:.75rem}
+  .key:active{transform:scale(.95)}
+  .shake{animation:shake .35s}
+  @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-7px)}40%{transform:translateX(7px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+  .overlay{position:fixed; inset:0; background:var(--overlay); display:none; align-items:center; justify-content:center; padding:16px; z-index:10}
+  .overlay.show{display:flex}
+  .modal{background:var(--bg); color:var(--fg); border-radius:14px; padding:22px; max-width:380px; width:100%; max-height:90dvh; overflow:auto; box-shadow:0 10px 40px rgba(0,0,0,.35)}
+  .modal h2{margin:0 0 10px; font-size:1.4rem}
+  .stats{display:flex; gap:10px; margin:12px 0}
+  .stat{flex:1; background:var(--tile); border:1px solid var(--border); border-radius:10px; padding:10px; text-align:center}
+  .stat b{display:block; font-size:1.8rem}
+  .stat span{font-size:.72rem; color:var(--muted)}
+  .verdict{font-weight:600; margin:8px 0}
+  .path{font-size:.85rem; color:var(--muted); word-break:break-word; margin:6px 0 14px}
+  .btnrow{display:flex; gap:8px; flex-wrap:wrap}
+  .modal p, .modal li{line-height:1.5; font-size:.95rem}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Poople 💩<small id="sub"></small></h1>
+    <div class="icons">
+      <button class="icon" id="helpBtn" title="How to play" aria-label="How to play">?</button>
+      <button class="icon" id="themeBtn" title="Toggle dark / light" aria-label="Toggle theme">🌙</button>
+    </div>
+  </header>
+
+  <div id="board" aria-live="polite"></div>
+
+  <div id="goal">
+    <div class="caption">GOAL</div>
+    <div class="row" id="goalRow"></div>
+    <div id="goalInfo"><span id="steps">Steps: 0</span></div>
+  </div>
+
+  <div id="msg"></div>
+  <div id="actions">
+    <button class="btn" id="undoBtn">↶ Undo</button>
+    <button class="btn" id="resetBtn">⟲ Reset</button>
+    <button class="btn primary" id="resultBtn" style="display:none">Results</button>
+  </div>
+  <div id="kb"></div>
+</div>
+
+<div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
+
+<script>
+(function(){
+'use strict';
+
+/* ---------- Settings you might want to change ---------- */
+const TARGET = 'POOP';                 // the word players are trying to reach
+const LAUNCH = Date.UTC(2026, 9, 19);  // Puzzle #1 date (year, month 0-11, day)
+const MIN_START_DIST = 3;              // starting words must be at least this many steps away
+const MAX_START_DIST = 8;              // ...and no more than this many
+
+/* ---------- Dictionary (common 4-letter words). Add more freely. ---------- */
+const RAW = `
+ABLE ACHE ACID ACRE AGED AIDE ALSO ALTO AREA ARMY ATOM AUNT AUTO AWAY AXLE
+BABY BACK BAIL BAIT BAKE BALD BALL BAND BANK BARE BARK BARN BASE BASH BATH BEAD BEAK BEAM BEAN BEAR BEAT BEEF BEEN BEER BELL BELT BEND BENT BEST BIKE BILL BIND BIRD BITE BLOW BLUE BOAT BODY BOIL BOLD BOLT BOMB BOND BONE BOOK BOOM BOOT BORE BORN BOSS BOTH BOWL BULK BULL BUMP BURN BURY BUSH BUSY BUZZ
+CAFE CAGE CAKE CALF CALL CALM CAME CAMP CANE CAPE CARD CARE CART CASE CASH CAST CAVE CELL CHAT CHEF CHIN CHIP CITY CLAP CLAY CLIP CLUB CLUE COAL COAT CODE COIN COLD COME COOK COOL COOP COPE COPY CORD CORE CORK CORN COST COZY CREW CROP CROW CUBE CULT CURB CURE CURL CUTE
+DAMP DARE DARK DART DASH DATA DATE DAWN DAYS DEAD DEAF DEAL DEAN DEAR DEBT DECK DEED DEEP DEER DENT DENY DESK DIAL DICE DIET DIME DINE DIRT DISC DISH DIVE DOCK DOES DOLL DOME DONE DOOR DOSE DOWN DRAG DRAW DREW DRIP DROP DRUG DRUM DUAL DUCK DUDE DUKE DULL DUMB DUMP DUNE DUSK DUST DUTY
+EACH EARN EASE EAST EASY ECHO EDGE EDIT ELSE EMIT ENDS EPIC EVEN EVER EVIL EXAM EXIT
+FACE FACT FADE FAIL FAIR FAKE FALL FAME FARM FAST FATE FEAR FEED FEEL FEET FELL FELT FERN FEST FILE FILL FILM FIND FINE FIRE FIRM FISH FIST FIVE FLAG FLAT FLEE FLEW FLIP FLOW FOAM FOLD FOLK FOND FOOD FOOL FOOT FORD FORK FORM FORT FOUL FOUR FREE FROG FROM FUEL FULL FUND FUSE
+GAIN GAME GANG GAPE GARB GATE GAVE GAZE GEAR GIFT GILL GIRL GIVE GLAD GLOW GLUE GOAL GOAT GOES GOLD GOLF GONE GOOD GOWN GRAB GRAY GREW GREY GRID GRIM GRIN GRIP GROW GULF GUST GUYS
+HAIL HAIR HALF HALL HAND HANG HARD HARM HATE HAUL HAVE HAWK HEAD HEAL HEAP HEAR HEAT HEEL HELD HELL HELP HERB HERD HERE HERO HIDE HIGH HIKE HILL HINT HIRE HOLD HOLE HOLY HOME HOOD HOOK HOOP HOOT HOPE HORN HOSE HOST HOUR HUGE HUNG HUNT HURT HUSH HYMN
+ICON IDEA IDLE INCH INTO IRON ISLE ITEM
+JACK JADE JAIL JAZZ JEAN JOBS JOIN JOKE JUMP JURY JUST
+KEEN KEEP KEPT KICK KIDS KILL KIND KING KISS KITE KNEE KNEW KNIT KNOB KNOT KNOW
+LACE LACK LADY LAID LAKE LAMB LAMP LAND LANE LAST LATE LAWN LAZY LEAD LEAF LEAK LEAN LEAP LEFT LEND LENS LESS LEST LIAR LIFE LIFT LIKE LIME LINE LINK LION LIST LIVE LOAD LOAF LOAN LOCK LOFT LOGO LONE LONG LOOK LOOP LOOT LORD LOSE LOSS LOST LOUD LOVE LUCK LUMP LUNG LURE
+MADE MAID MAIL MAIN MAKE MALE MALL MANY MARK MASK MASS MAST MATE MATH MAZE MEAL MEAN MEAT MEET MELT MENU MERE MESH MESS MICE MILD MILE MILK MILL MIND MINE MINT MISS MIST MOAN MOCK MODE MOLD MOOD MOON MOOR MOOT MORE MOSS MOST MOTH MOVE MUCH MULE MUST MYTH
+NAIL NAME NAVY NEAR NEAT NECK NEED NEST NEWS NEXT NICE NINE NODE NONE NOOK NOON NORM NOSE NOTE NOUN
+OATH OBEY ODDS OILY OKAY ONCE ONLY ONTO OPEN ORAL OURS OVAL OVEN OVER
+PACE PACK PAGE PAID PAIL PAIN PAIR PALE PALM PARK PART PASS PAST PATH PEAK PEAR PEEL PEER PERK PICK PIER PILE PILL PINE PINK PIPE PLAN PLAY PLEA PLOP PLOT PLOW PLUG PLUS POEM POET POKE POLE POLL POMP POND PONY POOF POOL POOP POOR PORK PORT POSE POST POUR PRAY PREY PROD PROM PROP PULL PULP PUMP PUNK PURE PUSH
+QUIT QUIZ
+RACE RACK RAGE RAID RAIL RAIN RAKE RAMP RANG RANK RARE RATE READ REAL REAR REEF RELY RENT REST RICE RICH RIDE RING RIOT RIPE RISE RISK ROAD ROAR ROBE ROCK RODE ROLE ROLL ROOF ROOK ROOM ROOT ROPE ROSE ROSY RUDE RUIN RULE RUSH RUST
+SACK SAFE SAGE SAID SAIL SAKE SALE SALT SAME SAND SANG SANK SAVE SEAL SEAM SEAT SEED SEEK SEEM SEEN SELF SELL SEND SENT SHED SHIN SHIP SHOE SHOP SHOT SHOW SHUT SICK SIDE SIGH SIGN SILK SING SINK SITE SIZE SKIN SKIP SLAB SLAM SLED SLID SLIM SLIP SLOT SLOW SNAP SNOW SOAK SOAP SOAR SOCK SOFA SOFT SOIL SOLD SOLE SOME SONG SOON SOOT SORE SORT SOUL SOUP SOUR SPAN SPIN SPOT STAR STAY STEM STEP STEW STIR STOP SUCH SUIT SUNG SUNK SURE SURF SWAM SWAN SWAP SWIM
+TACK TAIL TAKE TALE TALK TALL TANK TAPE TASK TEAM TEAR TECH TELL TEND TENT TERM TEST TEXT THAN THAT THEM THEN THEY THIN THIS THUS TIDE TIDY TIED TIER TILE TILL TIME TINY TIRE TOAD TOLD TOLL TOMB TONE TOOK TOOL TOOT TOUR TOWN TOYS TRAP TRAY TREE TRIM TRIO TRIP TRUE TUBE TUNE TURN TWIN TYPE
+UGLY UNIT UPON URGE USED USER
+VAIN VARY VAST VERB VERY VEST VIEW VINE VOID VOTE
+WADE WAGE WAIT WAKE WALK WALL WANT WARD WARM WARN WASH WAVE WAYS WEAK WEAR WEED WEEK WELL WENT WERE WEST WHAT WHEN WHOM WIDE WIFE WILD WILL WIND WINE WING WIPE WIRE WISE WISH WITH WOKE WOLF WOOD WOOL WORD WORE WORK WORM WORN WRAP
+YARD YARN YEAR YELL YOGA YOLK YOUR
+ZERO ZONE ZOOM
+`;
+
+const WORDS = [...new Set(RAW.split(/\s+/).map(w => w.toUpperCase()).filter(w => /^[A-Z]{4}$/.test(w)))];
+const DICT = new Set(WORDS);
+DICT.add(TARGET);
+
+/* ---------- Word graph + shortest paths (BFS outward from the target) ---------- */
+const buckets = new Map();
+for (const w of DICT) {
+  for (let i = 0; i < 4; i++) {
+    const k = w.slice(0, i) + '_' + w.slice(i + 1);
+    if (!buckets.has(k)) buckets.set(k, []);
+    buckets.get(k).push(w);
+  }
+}
+function neighbours(w) {
+  const out = [];
+  for (let i = 0; i < 4; i++) {
+    const k = w.slice(0, i) + '_' + w.slice(i + 1);
+    for (const n of buckets.get(k) || []) if (n !== w) out.push(n);
+  }
+  return out;
+}
+const dist = new Map([[TARGET, 0]]);
+const nextStep = new Map();
+const queue = [TARGET];
+for (let h = 0; h < queue.length; h++) {
+  const w = queue[h];
+  for (const n of neighbours(w)) {
+    if (!dist.has(n)) { dist.set(n, dist.get(w) + 1); nextStep.set(n, w); queue.push(n); }
+  }
+}
+let STARTS = [...DICT].filter(w => dist.has(w) && dist.get(w) >= MIN_START_DIST && dist.get(w) <= MAX_START_DIST).sort();
+if (!STARTS.length) STARTS = [...DICT].filter(w => dist.has(w) && w !== TARGET).sort();
+
+/* ---------- Daily puzzle: same word for everyone, changes at local midnight ---------- */
+function todayIndex() {
+  const d = new Date();
+  return Math.round((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - LAUNCH) / 864e5);
+}
+function dailyStart(n) {
+  const L = STARTS.length;
+  return STARTS[(((n * 7919 + 104729) % L) + L) % L];
+}
+
+/* ---------- Storage helpers (safe if storage is blocked) ---------- */
+const store = {
+  get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } },
+  set(k,v){ try { localStorage.setItem(k,v); } catch(e){} }
+};
+
+/* ---------- State ---------- */
+let mode = 'daily', dayN = 0, start = '', chain = [], cur = '', won = false;
+
+function diffCount(a, b) { let c = 0; for (let i = 0; i < 4; i++) if (a[i] !== b[i]) c++; return c; }
+function validChain(c) {
+  if (!c.every(w => typeof w === 'string' && DICT.has(w))) return false;
+  for (let i = 1; i < c.length; i++) if (diffCount(c[i-1], c[i]) !== 1) return false;
+  return new Set(c).size === c.length;
+}
+function save() { if (mode === 'daily') store.set('poople-' + dayN, JSON.stringify(chain)); }
+
+function newGame(m) {
+  mode = m; cur = '';
+  if (m === 'daily') {
+    dayN = todayIndex();
+    start = dailyStart(dayN);
+    chain = [start];
+    const saved = store.get('poople-' + dayN);
+    if (saved) {
+      try { const c = JSON.parse(saved); if (Array.isArray(c) && c[0] === start && validChain(c)) chain = c; } catch(e){}
+    }
+  } else {
+    start = STARTS[Math.floor(Math.random() * STARTS.length)];
+    chain = [start];
+  }
+  won = chain[chain.length - 1] === TARGET;
+  closeModal();
+  render();
+  if (won) showResult();
+}
+
+/* ---------- Rendering ---------- */
+const $ = id => document.getElementById(id);
+const board = $('board');
+
+function makeRow(word, cls, changedIdx, partial) {
+  const r = document.createElement('div');
+  r.className = 'row ' + (cls || '');
+  for (let i = 0; i < 4; i++) {
+    const t = document.createElement('div');
+    t.className = 'tile' + (i === changedIdx ? ' changed' : '') + (partial && word[i] ? ' filled' : '');
+    t.textContent = word[i] || '';
+    r.appendChild(t);
+  }
+  return r;
+}
+function caption(text) { const c = document.createElement('div'); c.className = 'caption'; c.textContent = text; return c; }
+
+function render() {
+  $('sub').textContent = mode === 'daily' ? 'Daily #' + (dayN + 1) : 'Random game';
+  board.innerHTML = '';
+  board.appendChild(caption('START'));
+  chain.forEach((w, i) => {
+    let ch = -1;
+    if (i > 0) for (let k = 0; k < 4; k++) if (w[k] !== chain[i-1][k]) ch = k;
+    const isLast = won && i === chain.length - 1;
+    board.appendChild(makeRow(w, i === 0 ? 'start' : (isLast ? 'win' : ''), isLast ? -1 : ch));
+  });
+  if (!won) {
+    const r = makeRow(cur, 'input', -1, true);
+    r.id = 'inputRow';
+    board.appendChild(r);
+  }
+  board.scrollTop = board.scrollHeight;
+
+  const g = $('goalRow'); g.innerHTML = '';
+  for (const ch of TARGET) { const t = document.createElement('div'); t.className = 'tile'; t.textContent = ch; g.appendChild(t); }
+  $('steps').textContent = 'Steps: ' + (chain.length - 1);
+  $('undoBtn').disabled = won || chain.length < 2;
+  $('resultBtn').style.display = won ? '' : 'none';
+}
+
+let msgTimer;
+function msg(text) {
+  const m = $('msg'); m.textContent = text; m.classList.add('show');
+  clearTimeout(msgTimer); msgTimer = setTimeout(() => m.classList.remove('show'), 1800);
+}
+function reject(text) {
+  msg(text);
+  const r = $('inputRow');
+  if (r) { r.classList.remove('shake'); void r.offsetWidth; r.classList.add('shake'); }
+}
+
+/* ---------- Game actions ---------- */
+function press(k) {
+  if (won || $('overlay').classList.contains('show')) return;
+  if (k === 'ENTER') return submit();
+  if (k === 'BACK') cur = cur.slice(0, -1);
+  else if (cur.length < 4) cur += k;
+  render();
+}
+
+function submit() {
+  if (cur.length < 4) return reject('Not enough letters');
+  const prev = chain[chain.length - 1];
+  if (!DICT.has(cur)) return reject('Word does not exist');
+  if (diffCount(prev, cur) !== 1) return reject('Word not one letter different');
+  if (chain.includes(cur)) return reject('Already used that word');
+  chain.push(cur); cur = '';
+  won = chain[chain.length - 1] === TARGET;
+  save(); render();
+  if (won) setTimeout(showResult, 450);
+}
+
+function undo() { if (won || chain.length < 2) return; chain.pop(); cur = ''; save(); render(); }
+function reset() { chain = [start]; cur = ''; won = false; save(); closeModal(); render(); }
+
+/* ---------- Result popup ---------- */
+function shortestPath() {
+  const p = [start]; let w = start;
+  while (w !== TARGET && nextStep.has(w)) { w = nextStep.get(w); p.push(w); }
+  return p;
+}
+function shareText() {
+  const steps = chain.length - 1, best = dist.get(start);
+  const rows = chain.slice(1).map((w, i) => {
+    if (i === chain.length - 2) return '💩💩💩💩';
+    let r = ''; for (let k = 0; k < 4; k++) r += w[k] !== chain[i][k] ? '🟫' : '⬜';
+    return r;
+  });
+  const label = mode === 'daily' ? '#' + (dayN + 1) : '(random)';
+  return `Poople ${label} 💩\n${steps} step${steps === 1 ? '' : 's'} (shortest: ${best})\n${rows.join('\n')}\n${location.href.split('#')[0]}`;
+}
+function showResult() {
+  const steps = chain.length - 1, best = dist.get(start);
+  const verdict = steps === best
+    ? '🎯 Perfect – that is the shortest possible route!'
+    : `The shortest possible route is <b>${best} step${best === 1 ? '' : 's'}</b>. You took ${steps}.`;
+  $('modal').innerHTML = `
+    <h2>You made poop! 💩</h2>
+    <div class="stats">
+      <div class="stat"><b>${steps}</b><span>YOUR STEPS</span></div>
+      <div class="stat"><b>${best}</b><span>SHORTEST POSSIBLE</span></div>
+    </div>
+    <div class="verdict">${verdict}</div>
+    <div class="path">One shortest route: ${shortestPath().join(' → ')}</div>
+    <div class="btnrow">
+      <button class="btn primary" id="shareBtn">Share</button>
+      <button class="btn" id="randBtn">${mode === 'daily' ? 'Play a random one' : 'Another random one'}</button>
+      ${mode === 'random' ? '<button class="btn" id="dailyBtn">Today’s puzzle</button>' : ''}
+      <button class="btn" id="closeBtn">Close</button>
+    </div>`;
+  $('shareBtn').onclick = e => share(e.target);
+  $('randBtn').onclick = () => newGame('random');
+  if ($('dailyBtn')) $('dailyBtn').onclick = () => newGame('daily');
+  $('closeBtn').onclick = closeModal;
+  $('overlay').classList.add('show');
+}
+async function share(btn) {
+  const text = shareText();
+  let ok = false;
+  try { await navigator.clipboard.writeText(text); ok = true; }
+  catch (e) {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try { ok = document.execCommand('copy'); } catch (e2) {}
+    ta.remove();
+  }
+  if (!ok) { prompt('Copy your result:', text); return; }
+  btn.textContent = 'Copied!';
+  setTimeout(() => btn.textContent = 'Share', 2000);
+}
+function showHelp() {
+  $('modal').innerHTML = `
+    <h2>How to play</h2>
+    <p>Turn the starting word into <b>${TARGET}</b> by changing <b>exactly one letter</b> each go. Every step must be a real word.</p>
+    <ul>
+      <li>Fewest steps wins – can you find the shortest route?</li>
+      <li>Use <b>Undo</b> to back out of a dead end, or <b>Reset</b> to start again.</li>
+      <li>A new puzzle appears every day.</li>
+    </ul>
+    <div class="btnrow"><button class="btn primary" id="closeBtn">Got it</button></div>`;
+  $('closeBtn').onclick = closeModal;
+  $('overlay').classList.add('show');
+}
+function closeModal() { $('overlay').classList.remove('show'); }
+
+/* ---------- Keyboard (on-screen + physical) ---------- */
+const kb = $('kb');
+[['Q','W','E','R','T','Y','U','I','O','P'], ['A','S','D','F','G','H','J','K','L'], ['ENTER','Z','X','C','V','B','N','M','BACK']]
+.forEach(keys => {
+  const row = document.createElement('div'); row.className = 'krow';
+  keys.forEach(k => {
+    const b = document.createElement('button');
+    b.className = 'key' + (k.length > 1 ? ' wide' : '');
+    b.textContent = k === 'BACK' ? '⌫' : k;
+    b.setAttribute('aria-label', k === 'BACK' ? 'Backspace' : k);
+    b.addEventListener('click', () => press(k));
+    row.appendChild(b);
+  });
+  kb.appendChild(row);
+});
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === 'Escape') return closeModal();
+  if (e.key === 'Enter') { if (document.activeElement && document.activeElement.tagName === 'BUTTON') document.activeElement.blur(); e.preventDefault(); return press('ENTER'); }
+  if (e.key === 'Backspace') return press('BACK');
+  if (/^[a-zA-Z]$/.test(e.key)) press(e.key.toUpperCase());
+});
+
+/* ---------- Buttons + theme ---------- */
+$('undoBtn').onclick = undo;
+$('resetBtn').onclick = reset;
+$('resultBtn').onclick = showResult;
+$('helpBtn').onclick = showHelp;
+$('overlay').addEventListener('click', e => { if (e.target.id === 'overlay') closeModal(); });
+
+function setTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  $('themeBtn').textContent = t === 'dark' ? '☀️' : '🌙';
+  store.set('poople-theme', t);
+}
+$('themeBtn').onclick = () => setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+setTheme(store.get('poople-theme') || (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+
+/* ---------- Go ---------- */
+newGame('daily');
+if (!store.get('poople-seen-help')) { store.set('poople-seen-help', '1'); showHelp(); }
+})();
+</script>
+</body>
+</html>
