@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Poople 💩 – daily word ladder</title>
+<title>Beandle 🫘 – daily word ladder</title>
 <style>
   :root{
     --bg:#faf7f2; --fg:#2b2118; --muted:#8a7d70; --tile:#ffffff; --border:#e2d9cc;
@@ -74,7 +74,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Poople 💩<small id="sub"></small></h1>
+    <h1>Beandle 🫘<small id="sub"></small></h1>
     <div class="icons">
       <button class="icon" id="helpBtn" title="How to play" aria-label="How to play">?</button>
       <button class="icon" id="themeBtn" title="Toggle dark / light" aria-label="Toggle theme">🌙</button>
@@ -105,7 +105,7 @@
 'use strict';
 
 /* ---------- Settings you might want to change ---------- */
-const TARGET = 'POOP';                 // the word players are trying to reach
+const TARGET = 'BEAN';                 // the word players are trying to reach
 const LAUNCH = Date.UTC(2026, 9, 19);  // Puzzle #1 date (year, month 0-11, day)
 const MIN_START_DIST = 3;              // starting words must be at least this many steps away
 const MAX_START_DIST = 8;              // ...and no more than this many
@@ -304,12 +304,12 @@ function shortestPath() {
 function shareText() {
   const steps = chain.length - 1, best = dist.get(start);
   const rows = chain.slice(1).map((w, i) => {
-    if (i === chain.length - 2) return '💩💩💩💩';
+    if (i === chain.length - 2) return '🫘🫘🫘🫘';
     let r = ''; for (let k = 0; k < 4; k++) r += w[k] !== chain[i][k] ? '🟫' : '⬜';
     return r;
   });
   const label = mode === 'daily' ? '#' + (dayN + 1) : '(random)';
-  return `Poople ${label} 💩\n${steps} step${steps === 1 ? '' : 's'} (shortest: ${best})\n${rows.join('\n')}\n${location.href.split('#')[0]}`;
+  return `Beandle ${label} 🫘\n${steps} step${steps === 1 ? '' : 's'} (shortest: ${best})\n${rows.join('\n')}\n${location.href.split('#')[0]}`;
 }
 function showResult() {
   const steps = chain.length - 1, best = dist.get(start);
@@ -317,7 +317,7 @@ function showResult() {
     ? '🎯 Perfect – that is the shortest possible route!'
     : `The shortest possible route is <b>${best} step${best === 1 ? '' : 's'}</b>. You took ${steps}.`;
   $('modal').innerHTML = `
-    <h2>You made poop! 💩</h2>
+    <h2>You got BEAN! 🫘</h2>
     <div class="stats">
       <div class="stat"><b>${steps}</b><span>YOUR STEPS</span></div>
       <div class="stat"><b>${best}</b><span>SHORTEST POSSIBLE</span></div>
